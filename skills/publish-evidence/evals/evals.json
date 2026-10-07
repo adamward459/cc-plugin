@@ -1,0 +1,73 @@
+{
+  "skill_name": "publish-evidence",
+  "evals": [
+    {
+      "id": 1,
+      "name": "github-pr-ios-android",
+      "prompt": "/publish-evidence specs/testcases/AO-702.md 42",
+      "expected_output": "Detects GitHub from the remote, names PR #42 (https://github.com/acme/aqx-mobile/pull/42) and says it will post with gh pr comment. Writes the block to the scratchpad: first line VERIFIED 2 of 4; iOS and Android sections, no Web; TC-3 android listed as not run; TC-4 (removed) left out; TC-1 iOS shots in a 3-per-row table with the last row padded and captions from the file names; TC-2 'What I saw' copied; one server check line, no token. Every file has a placeholder. Lists the files with sizes and waits for a yes. Nothing uploaded or posted.",
+      "files": ["evals/fixtures/make-repo.sh github"],
+      "assertions": [
+        "Repo unchanged and nothing written into .evidence",
+        "Block written to the scratchpad",
+        "Nothing uploaded or posted",
+        "Waits for a yes",
+        "Lists the files with sizes",
+        "Every screenshot and video has a placeholder",
+        "No token or header from server.txt in the block",
+        "First line: VERIFIED 2 of 4",
+        "Names GitHub and the PR link",
+        "Plans to post with gh pr comment",
+        "iOS and Android sections, no Web section",
+        "TC-3 android listed as not run",
+        "TC-4 (removed) left out",
+        "Screenshot rows have 3 cells each (last row padded)",
+        "Captions come from the file names",
+        "TC-2 'What I saw' copied",
+        "Server check line under TC-1 iOS"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "gitlab-selfhosted-mr",
+      "prompt": "/publish-evidence spec/testcases/sentence-search/cases.md 17",
+      "expected_output": "Detects GitLab from the self-hosted remote gitlab.acme.dev, says MR !17 (https://gitlab.acme.dev/mobile/aqx/-/merge_requests/17) and says it will post with glab. Finds the evidence under .evidence/sentence-search/ (generic file name, so the folder name is the key). Block: VERIFIED 2 of 2; Web and iOS sections, no Android; SS2 (inactive) left out. Waits for a yes. Nothing uploaded or posted, no gh used.",
+      "files": ["evals/fixtures/make-repo.sh gitlab"],
+      "assertions": [
+        "Repo unchanged and nothing written into .evidence",
+        "Block written to the scratchpad",
+        "Nothing uploaded or posted",
+        "Waits for a yes",
+        "Lists the files with sizes",
+        "Every screenshot and video has a placeholder",
+        "First line: VERIFIED 2 of 2",
+        "Names GitLab and the MR link",
+        "Calls it an MR",
+        "Plans to post with glab",
+        "Web and iOS sections, no Android section",
+        "SS2 (inactive) left out"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "bitbucket-other-host",
+      "prompt": "/publish-evidence specs/testcases/AO-801.md https://bitbucket.org/acme/transfer-web/pull-requests/9",
+      "expected_output": "Treats Bitbucket as an Other host: uses the given PR URL, and says the final block will be put in the comment box for the user to review and press Comment (no gh or glab). Block: VERIFIED 2 of 4; Web and iOS sections; TC-2 fail with 'What I saw' copied; TC-4 ios listed as not run. Waits for a yes. Nothing uploaded or posted.",
+      "files": ["evals/fixtures/make-repo.sh other"],
+      "assertions": [
+        "Repo unchanged and nothing written into .evidence",
+        "Block written to the scratchpad",
+        "Nothing uploaded or posted",
+        "Waits for a yes",
+        "Lists the files with sizes",
+        "Every screenshot and video has a placeholder",
+        "First line: VERIFIED 2 of 4",
+        "Uses the given Bitbucket PR link",
+        "Says the user presses Comment (no gh or glab post)",
+        "Web and iOS sections",
+        "TC-4 ios listed as not run",
+        "TC-2 'What I saw' copied"
+      ]
+    }
+  ]
+}
