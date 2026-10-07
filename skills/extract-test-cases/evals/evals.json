@@ -1,0 +1,123 @@
+{
+  "skill_name": "extract-test-cases",
+  "evals": [
+    {
+      "id": 1,
+      "name": "web-withdraw-with-requirement",
+      "prompt": "write the test cases for AO-618 so QA can run them on the web app. jira is down rn so here's the ticket:\n\nAO-618 [Pay][Web] Fiat withdrawal form\nAs a trader I want to withdraw USD to my saved bank account.\nAC-1: User selects one of their saved bank accounts\nAC-2: Minimum withdrawal is 10 USD\nAC-3: User cannot withdraw more than the available USD balance\nAC-4: Fee is 1% of the amount, minimum 2 USD, and is shown before confirming\nAC-5: Users whose KYC is not approved cannot withdraw\nAC-6: A confirmation step shows bank, amount, fee and the amount received\nAC-7: If the daily limit is hit, show an error and do not submit",
+      "expected_output": "specs/testcases/AO-618.md with Setup (flag, KYC account, bank account, balance), a Behaviors table citing AC-1..AC-7 and code lines, web cases using real labels. The AC-5 KYC behavior is full (WithdrawForm.test.tsx) and has no case.",
+      "files": [
+        "evals/fixtures/make-repo.sh web-withdraw"
+      ],
+      "assertions": [
+        "File saved at specs/testcases/AO-618.md",
+        "Has a '## Setup' section",
+        "Has a Behaviors table",
+        "Every behavior has coverage full/partial/none",
+        "Every test case links to behaviors",
+        "Case list is focused (3-12 cases)",
+        "No Questions section in the file",
+        "No open-question pointers in Expected",
+        "Asked the user before writing (questions.md)",
+        "User answers used as sources",
+        "Cases are not labeled manual/automated/human",
+        "Behavior and coverage steps ran in subagents",
+        "Setup names the NEXT_PUBLIC_FIAT_WITHDRAW_V2 flag",
+        "Behavior sources include requirement ACs and code lines",
+        "Every AC-1..AC-7 is in the Behaviors table",
+        "KYC behavior is full coverage with no manual case",
+        "Minimum-amount behavior is partial and has a manual case",
+        "Steps use real UI labels",
+        "No password or token values"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "mobile-otp-diff-only",
+      "prompt": "what should QA test on this branch? save the test cases somewhere so we can record evidence on the simulators later",
+      "expected_output": "specs/testcases/AO-702.md, Platform ios, android, cases for 60s cooldown, lockout after 3 resends, remote config flag otp_resend_v2 in Setup, background/foreground timer edge, API failure edge; formatCountdown unit test does not remove UI cases.",
+      "files": [
+        "evals/fixtures/make-repo.sh mobile-otp"
+      ],
+      "assertions": [
+        "File saved at specs/testcases/AO-702.md",
+        "Has a '## Setup' section",
+        "Has a Behaviors table",
+        "Every behavior has coverage full/partial/none",
+        "Every test case links to behaviors",
+        "Case list is focused (3-12 cases)",
+        "No Questions section in the file",
+        "No open-question pointers in Expected",
+        "Asked the user before writing (questions.md)",
+        "User answers used as sources",
+        "Cases are not labeled manual/automated/human",
+        "Behavior and coverage steps ran in subagents",
+        "Setup names the otp_resend_v2 remote config",
+        "Platform covers ios and android",
+        "Behavior sources are code lines only",
+        "No invented AC numbers",
+        "Cases for cooldown and lockout",
+        "Edge cases for background and failed resend"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "update-existing-file",
+      "prompt": "I pushed more changes on AO-618 - added a Withdraw all button and product bumped the minimum to 20 USD. update the test cases pls",
+      "expected_output": "Existing specs/testcases/AO-618.md updated in place: TC-1..TC-3 keep their IDs, TC-2 keeps its Mode/Status/Recording/Note lines, TC-1 expects the 20 USD minimum and gets Status: outdated with an Outdated line, a new TC-4+ covers Withdraw all.",
+      "files": [
+        "evals/fixtures/make-repo.sh web-withdraw-update"
+      ],
+      "assertions": [
+        "File saved at specs/testcases/AO-618.md",
+        "Has a '## Setup' section",
+        "Has a Behaviors table",
+        "Every behavior has coverage full/partial/none",
+        "Every test case links to behaviors",
+        "Case list is focused (3-12 cases)",
+        "No Questions section in the file",
+        "No open-question pointers in Expected",
+        "Asked the user before writing (questions.md)",
+        "User answers used as sources",
+        "Cases are not labeled manual/automated/human",
+        "Behavior and coverage steps ran in subagents",
+        "TC-1, TC-2, TC-3 keep their IDs",
+        "TC-2 result lines unchanged",
+        "TC-1 now expects the 20 USD minimum",
+        "TC-1 is Status: outdated",
+        "TC-1 keeps its old Note",
+        "TC-1 has an Outdated: reason line",
+        "New case added for Withdraw all",
+        "Double fee on Withdraw all asked or raised",
+        "KYC automation reference kept"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "mobile-update-per-platform-results",
+      "prompt": "product wants the otp resend cooldown at 30s instead of 60, I pushed it on AO-702. can you update the test cases? we already recorded some of them on both simulators",
+      "expected_output": "Existing specs/testcases/AO-702.md updated in place: TC-1 expects 0:30, gets one Outdated line, and both its ios and android blocks become Status: outdated with their Mode/Recording/Note kept. TC-2 keeps both platform blocks unchanged. TC-3 keeps its ID.",
+      "files": [
+        "evals/fixtures/make-repo.sh mobile-otp-update"
+      ],
+      "assertions": [
+        "File saved at specs/testcases/AO-702.md",
+        "Has a '## Setup' section",
+        "Has a Behaviors table",
+        "Every behavior has coverage full/partial/none",
+        "Every test case links to behaviors",
+        "Case list is focused (3-12 cases)",
+        "No Questions section in the file",
+        "No open-question pointers in Expected",
+        "Cases are not labeled manual/automated/human",
+        "Behavior and coverage steps ran in subagents",
+        "TC-1, TC-2, TC-3 keep their IDs",
+        "TC-1 now expects the 0:30 cooldown",
+        "TC-1 has one Outdated: line",
+        "TC-1 ios and android results are both Status: outdated",
+        "TC-1 keeps both recordings and notes",
+        "TC-2 platform results unchanged"
+      ]
+    }
+  ]
+}

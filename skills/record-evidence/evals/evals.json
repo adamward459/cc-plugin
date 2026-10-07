@@ -1,0 +1,86 @@
+{
+  "skill_name": "record-evidence",
+  "evals": [
+    {
+      "id": 1,
+      "name": "no-case-file",
+      "prompt": "record evidence for the OTP resend feature on ios, I need videos per test case for the MR",
+      "expected_output": "Stops before any device work and asks for a case file. Writes no case file and no .evidence folder.",
+      "files": [
+        "evals/fixtures/make-repo.sh no-case-file"
+      ],
+      "assertions": [
+        "Repo files unchanged (git status clean)",
+        "No .evidence folder created",
+        "No xcrun simctl or adb used to drive the app",
+        "Asks the user for a case file",
+        "Writes no case file"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "extract-format-pick-then-no-argent",
+      "prompt": "record evidence for specs/testcases/AO-702.md on ios. I reviewed the file yesterday",
+      "expected_output": "Prints the pick: TC-2 (outdated) and TC-6 picked; TC-1 skipped (already pass on ios), TC-3 skipped (android only), TC-4 skipped (removed), TC-5 BLOCKED (needs a person, real SMS). Stops at the tools gate because the argent MCP server is not connected, and does not fall back to xcrun simctl. The case file is unchanged.",
+      "files": [
+        "evals/fixtures/make-repo.sh extract-format"
+      ],
+      "assertions": [
+        "Repo files unchanged (git status clean)",
+        "No .evidence folder created",
+        "No xcrun simctl or adb used to drive the app",
+        "TC-2 is picked (outdated on ios)",
+        "TC-6 is picked (no result yet)",
+        "TC-1 is skipped: already pass on ios",
+        "TC-3 is skipped: android only",
+        "TC-4 is skipped: removed",
+        "TC-5 is BLOCKED: needs a person",
+        "Stops because the argent MCP server is not connected"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "other-format-gitignore-gate",
+      "prompt": "record the SS cases on android, file is spec/testcases/sentence-search/cases.md",
+      "expected_output": "Reads the non-extract format: SS1 picked, SS2 BLOCKED (Driver: human), SS3 skipped (ios only), SS4 skipped (inactive). Stops at the read gate because .gitignore does not ignore .evidence/, tells the user to add it, and does not edit .gitignore.",
+      "files": [
+        "evals/fixtures/make-repo.sh other-format"
+      ],
+      "assertions": [
+        "Repo files unchanged (git status clean)",
+        "No .evidence folder created",
+        "No xcrun simctl or adb used to drive the app",
+        "SS1 is picked",
+        "SS2 is BLOCKED: Driver human",
+        "SS3 is skipped: ios only",
+        "SS4 is skipped: inactive",
+        "Tells the user to add .evidence/ to .gitignore"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "web-record-end-to-end",
+      "prompt": "record evidence for specs/testcases/AO-801.md on web, I reviewed it this morning",
+      "expected_output": "Starts the static server from Setup, drives TC-1..TC-3 in the browser, saves a video and a note per case under .evidence/AO-801/<ID>/, TC-2 fails (120 USD is sent instead of showing 'Amount exceeds balance'), TC-4 (ios) is skipped. Writes Mode/Status/Recording/Note lines into TC-1..TC-3 only, and stops the server.",
+      "files": [
+        "evals/fixtures/make-repo.sh web-transfer"
+      ],
+      "assertions": [
+        "Only the case file changed in the repo",
+        "No xcrun simctl or adb used to drive the app",
+        "Case folders exist for TC-1, TC-2, TC-3 and not TC-4",
+        "Every case folder has a non-empty video named <ID>-web",
+        "No screenshots when the case has a video",
+        "Test recording removed (only case folders in .evidence/AO-801)",
+        "Every case folder has a note <ID>-web.md with a Result line",
+        "TC-1 and TC-3 notes say pass",
+        "TC-2 note says fail and quotes what it saw",
+        "Case file: TC-1..TC-3 have Mode, Status, Recording and Note lines",
+        "Case file: TC-2 has Status: fail, TC-1 and TC-3 have Status: pass",
+        "Case file: TC-4 is unchanged",
+        "No secrets in evidence",
+        "Web server stopped after the run"
+      ]
+    }
+  ]
+}
