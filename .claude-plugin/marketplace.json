@@ -1,0 +1,11 @@
+{
+  "name": "adamward459-cc-plugin",
+  "owner": { "name": "Pham Thanh Trung" },
+  "plugins": [
+    {
+      "name": "cc-plugin",
+      "source": "./",
+      "description": "Personal Claude Code skills."
+    }
+  ]
+}

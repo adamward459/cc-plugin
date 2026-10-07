@@ -1,4 +1,2 @@
-__pycache__
-.ruff_cache
+evals/results/
 node_modules
-.review-sessions/
