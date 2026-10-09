@@ -79,7 +79,9 @@
         "Case file: TC-2 has Status: fail, TC-1 and TC-3 have Status: pass",
         "Case file: TC-4 is unchanged",
         "No secrets in evidence",
-        "Web server stopped after the run"
+        "Web server stopped after the run",
+        "Every video is 10 MB or less",
+        "Chrome window closed by its profile folder"
       ]
     }
   ]

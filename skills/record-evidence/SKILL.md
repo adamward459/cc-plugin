@@ -55,7 +55,7 @@ Print the pick before the Phase 1 gate, so it shows even when a gate stops the r
 4. **No secrets in evidence or in the case file.** Network logs, headers, cookies and device logs can hold tokens. Save URLs, methods and status codes; replace any secret with `<redacted>`. Never write a password anywhere.
 5. **Server checks are not optional.** When a case has a server check, the note records its result. If it cannot run, the note says so and the case is not VERIFIED.
 6. **Never commit**, and never edit `.gitignore` without asking.
-7. **Stop what you start.** Every recording is stopped, even when a step fails. Pages, simulators, emulators and servers this run started are closed at the end; ones that were already running are left alone.
+7. **Stop what you start.** Every recording is stopped, even when a step fails. Pages, the Chrome window, simulators, emulators and servers this run started are closed at the end; ones that were already running are left alone.
 
 ## Phases
 
@@ -100,6 +100,7 @@ Follow the reference file for each step:
 3. Do the steps in order.
 4. Check each expected line. Note which lines held.
 5. Stop the recording and confirm the file is in the case folder and not empty. If it is missing or empty, the recording tool broke: the case is BLOCKED, every case not yet run is NOT-RUN, and the run stops.
+   Then run `bash scripts/fit-video.sh <video>` from this skill's folder. GitLab/Github provider rejects uploads over 10 MB, so every video must be 10 MB or less. The script shrinks a video over 10 MB in place and leaves the others alone. Exit 2 means it is still too big at the smallest step: keep the case result, say so in the note, and give it as the reason in the ledger.
 6. Take screenshots only when the user asked for them.
 7. Run the server check, if any.
 8. Write the note (template below).

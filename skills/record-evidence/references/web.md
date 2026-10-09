@@ -15,4 +15,7 @@ All browser work goes through the `chrome-devtools-rec` MCP server. It runs with
 
 ## Clean up
 
-Close the pages this run opened with `close_page`.
+Close the pages this run opened with `close_page`. The server cannot close its last page, so its Chrome window stays open after that. Close the window too:
+
+1. `navigate_page` the last page to `chrome://version`, then `take_snapshot` and read the `Profile Path` row. Drop the last part (`/Default`) to get the profile folder, for example `/var/folders/.../puppeteer_dev_chrome_profile-AbC123`.
+2. Run `pkill -f -- '--user-data-dir=<profile folder>'`. Only the Chrome this server started uses that folder, so the user's own Chrome stays open. The server starts a new Chrome on its next call.

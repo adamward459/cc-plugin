@@ -112,6 +112,9 @@ def check_4(run):
         ("Case file: TC-4 is unchanged", blocks["TC-4"] == case_block(original, "TC-4"), ""),
         ("No secrets in evidence", not re.search(r"authorization:|bearer\s+\w|cookie:|password\s*[:=]\s*\S", evidence_text, re.I), ""),
         ("Web server stopped after the run", port_free, f"port {port}"),
+        ("Every video is 10 MB or less",
+         all(f.stat().st_size <= 10_000_000 for v in videos.values() for f in v), ""),
+        ("Chrome window closed by its profile folder", bool(re.search(r"pkill.*--user-data-dir=", cmds)), ""),
     ]
 
 
