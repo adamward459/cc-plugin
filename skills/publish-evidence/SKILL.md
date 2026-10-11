@@ -16,8 +16,8 @@ extension (`specs/testcases/AO-702.md` → `AO-702`; for a generic name like `ca
 the folder name). Each case has `.evidence/<KEY>/<ID>/` with files named `<ID>-<target>…`:
 
 ```text
-<ID>-<target>.md                the note: Result, Driven by, Video, Checks, Server check, What I saw
-<ID>-<target>.mp4               the video
+<ID>-<target>.md                the note: Result, Driven by, Proof, Checks, Server check, What I saw
+<ID>-<target>.mp4               the video, for a video case
 <ID>-<target>-<n>-<state>.png   screenshots, when there are any
 <ID>-<target>-server.txt        raw server check output; never posted
 ```
@@ -33,11 +33,11 @@ the folder name). Each case has `.evidence/<KEY>/<ID>/` with files named `<ID>-<
 
 Take the host from `git remote get-url origin`, then pick the row:
 
-| Platform | When                                                          | Find the current one                       | Post                                                                                     | Update an earlier comment                                                                    |
-| -------- | ------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| GitHub   | `github.com`, or `gh auth status --hostname <host>` passes    | `gh pr view --json number,url`             | `gh pr comment <n> --body-file <block>`                                                  | `gh api -X PATCH repos/<owner>/<repo>/issues/comments/<id> -F body=@<block>`                 |
-| GitLab   | host has `gitlab`, or `glab auth status --hostname <host>` passes | `glab mr view --output json` (`iid`, `web_url`) | `glab api -X POST projects/:id/merge_requests/<iid>/notes -F body=@<block>`           | `glab api -X PUT projects/:id/merge_requests/<iid>/notes/<id> -F body=@<block>`              |
-| Other    | anything else (Bitbucket, Azure DevOps, Gitea, Forgejo, …)    | ask the user for the URL                   | the user posts: put the final block in the comment box and ask them to press Comment     | the user edits the comment by hand                                                           |
+| Platform | When                                                              | Find the current one                            | Post                                                                                 | Update an earlier comment                                                       |
+| -------- | ----------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| GitHub   | `github.com`, or `gh auth status --hostname <host>` passes        | `gh pr view --json number,url`                  | `gh pr comment <n> --body-file <block>`                                              | `gh api -X PATCH repos/<owner>/<repo>/issues/comments/<id> -F body=@<block>`    |
+| GitLab   | host has `gitlab`, or `glab auth status --hostname <host>` passes | `glab mr view --output json` (`iid`, `web_url`) | `glab api -X POST projects/:id/merge_requests/<iid>/notes -F body=@<block>`          | `glab api -X PUT projects/:id/merge_requests/<iid>/notes/<id> -F body=@<block>` |
+| Other    | anything else (Bitbucket, Azure DevOps, Gitea, Forgejo, …)        | ask the user for the URL                        | the user posts: put the final block in the comment box and ask them to press Comment | the user edits the comment by hand                                              |
 
 Say "PR" or "MR" as the platform does.
 
@@ -51,33 +51,45 @@ browser and the chrome-devtools MCP lack the user's login, so a private repo giv
 
 ## 1. Build the block
 
-1. Read the case file. Read its fields by meaning: targets can be `Platform`, `Targets`, `Device`.
-   The rows are every case not marked removed, inactive, draft, or deprecated, × each of its
-   targets.
-2. For each row, read `<ID>/<ID>-<target>.md` in the evidence folder, and list its
+1. Read the case file. Read its fields by meaning: targets can be platform columns, `Platform`,
+   `Targets`, `Device`. The cases are every case not marked removed (`🚫` in every cell), inactive,
+   draft, or deprecated. The rows to verify are each case × each of its targets.
+2. For each case × target, read `<ID>/<ID>-<target>.md` in the evidence folder, and list its
    `<ID>-<target>-*.png` screenshots and its `<ID>-<target>.mp4` video.
 3. Write the block to the scratchpad as `pr-evidence-<KEY>.md`:
-   - First line: `VERIFIED X of N; NOT VERIFIED N−X (reason)`. X counts notes with
-     `Result: pass`. A row with no note is NOT-RUN, and it is listed, never dropped.
-   - Sections `## 🌐 Web`, `## 📱 Mobile (iOS)`, `## 📱 Mobile (Android)`, only those with rows.
-   - Per row: `### <ID> — <title>`, then `**Result: ✅ pass**`, `**Result: ❌ fail**`, or
-     `**Result: ⏳ not run**`, then `Driven by` as the note has it. On fail, copy "What I saw" as
-     it is.
-   - When the note has a `## Server check` section, one line from it under the result.
-   - Screenshots as an HTML `<table>`, 3 per row (`<td width="33%">`). Pad a short last row with
-     empty `<td>`. Under each row, a second `<tr>` with
-     `<td align="center"><sub>Caption</sub></td>`; the caption comes from the `<state>` part of
-     the file name (`SS1-ios-2-sentences-tab.png` → `Sentences tab`).
-   - The video in `<details><summary>🎥 <ID> — <title></summary>`, after the shots, as
-     `{{video:<file name>}}` on its own line with a blank line before and after. Without the blank
-     lines, neither GitHub nor GitLab shows a player.
-   - Every image `src` is a placeholder: `{{<file name>}}`.
+   - First line: `VERIFIED X of N; NOT VERIFIED N−X (reasons)`. N counts case × target. X counts
+     notes with `Result: pass` on cases that are not outdated. A target with no note is not run,
+     and it is listed, never dropped. A pass on an outdated case is not verified: its steps
+     changed after the recording.
+   - Then one HTML `<table>`, the same shape as the case table `extract-test-cases` writes, so a
+     reviewer sees every case at a glance and expands only the ones they care about:
+     - Columns: `ID`, `Case`, one per platform the cases use (`Web`, `iOS`, `Android`), `Proof`.
+     - One row per case, in this order: current cases (★ first, then by ID), then outdated cases.
+     - Platform cells: `✅ pass`, `❌ fail`, `⏳ not run` (no note), `⚠️ outdated`, or `—` when the
+       case does not run there.
+     - Proof cell: `🎥` when the case has a video, else `📷`.
+     - Case cell: `<details><summary>` with the title (keep the ★), collapsed. Inside it, for each
+       target, in column order:
+       - `**<Target>: ✅ pass**`, `**<Target>: ❌ fail**`, or `**<Target>: ⏳ not run**`, then
+         `Driven by` as the note has it.
+       - When the note has a `## Server check` section, one line from it.
+       - The note's checks as a list. On fail, copy "What I saw" as it is.
+       - Screenshots as an HTML `<table>`, 3 per row (`<td width="33%">`). Pad a short last row
+         with empty `<td>`. Under each row, a second `<tr>` with
+         `<td align="center"><sub>Caption</sub></td>`; the caption comes from the `<state>` part
+         of the file name (`SS1-ios-2-sentences-tab.png` → `Sentences tab`).
+       - The video as `{{video:<file name>}}` on its own line.
+     - Every image `src` is a placeholder: `{{<file name>}}`.
+   - Leave a blank line after each `<summary>` line, around each video line, and before each
+     `</details>`, and do not indent the lines between them. Without the blank lines GitHub shows
+     the Markdown as raw text and the video gets no player.
 
 ## 2. Confirm
 
-Show the platform, the PR or MR link, how it will be posted (the Post column), the block, and the
-files to upload with their sizes. Wait for a yes. The upload sends the files to the host, and the
-comment is visible to everyone who can see the PR or MR.
+Show the platform, the PR link, how it will be posted (the Post column), the block, and the
+files to upload with their sizes. When the project docs say manual test evidence goes on the
+final PR only, also ask whether this is the feature's final PR. Wait for a yes. The upload sends the files to the host, and the
+comment is visible to everyone who can see the PR.
 
 ## 3. Upload in Chrome
 
@@ -92,6 +104,7 @@ comment is visible to everyone who can see the PR or MR.
 
    The attach button does not accept `file_upload`, so un-hide the input and give it
    `aria-label="evidence upload"`. Then `find` "evidence upload" for its ref.
+
 2. `file_upload` the absolute file paths to that ref, in batches of at most 10 MB.
 3. Wait for the links in the textarea's `value`. Poll with separate short `javascript_tool` calls;
    one call that loops with `await` hits the 45 s limit. An 8 MB video takes about 40 s. It is done

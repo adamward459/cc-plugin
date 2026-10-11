@@ -1,12 +1,12 @@
 ---
 name: record-evidence
-description: Runs the cases of a test case file against the real app and saves proof per case under .evidence/ (a video plus a note), then writes each result back into the case file. Works for web apps (Chrome DevTools MCP with screencast) and for the iOS simulator and Android emulators or devices (argent MCP). Reads any case file format (Markdown, tables, Gherkin or CSV). Use whenever the user wants recorded evidence, videos, screenshots or proof per test case for an MR or QA, for example "record the TC cases for AO-702 on ios", "record evidence for the transfer form on web", or "re-record the failed cases on android". Needs a case file the user has seen; it never writes test cases.
+description: Runs the cases of a test case file against the real app and saves proof per case under .evidence/ (a video or screenshots, as the case's Proof says, plus a note), then writes each result back into the case file. Works for web apps (Chrome DevTools MCP with screencast) and for the iOS simulator and Android emulators or devices (argent MCP). Reads any case file format (Markdown, tables, Gherkin or CSV). Use whenever the user wants recorded evidence, videos, screenshots or proof per test case for a PR or QA, for example "record the TC cases for AO-702 on ios", "record evidence for the transfer form on web", or "re-record the failed cases on android". Needs a case file the user has seen; it never writes test cases.
 argument-hint: "<case-file> [on <web|ios|android>] [IDs...]"
 ---
 
 # Record Evidence
 
-Runs each picked case of a case file on one target. For each case it saves a recording and one note, then writes the result into the case file. A recording is the evidence. When no recording can be made, the run stops.
+Runs each picked case of a case file on one target. For each case it saves the proof the case asks for (a video or screenshots) and one note, then writes the result into the case file. When that proof cannot be made, the run stops.
 
 ## Invocation
 
@@ -26,12 +26,18 @@ Case files come in many formats: Markdown with one heading per case, a Markdown 
 | Target        | `Platform`, `Targets`, `Device`, `OS`, `Browser`. Missing means the targets the Setup names         |
 | Preconditions | `Preconditions`, `Needs`, `Given`, `Background`. `after <ID>` means it starts where that case ended |
 | Steps         | `Steps`, `When`, a numbered list                                                                    |
-| Expected      | `Expected`, `Expect`, `Then`, `Expected result`                                                     |
+| Expected      | `Checks`, `Expected`, `Expect`, `Then`, `Expected result`                                           |
+| Proof         | `Proof` (`video` / `screenshots`, or a 🎥 / 📷 cell). Missing means video                          |
 | Server check  | `Server check`, `API check`, `Backend`. Optional                                                    |
 | Setup         | a file-level section: `Setup`, `Prerequisites`, `Environment`                                       |
-| Results       | `Mode`, `Status`, `Recording`, `Note` lines, or a per-target block (`- ios:`) holding them          |
+| Results       | a platform cell (`✅ pass`), `Status` / `Recording` / `Note` lines, or a per-target block (`- ios:`) |
 
-A common layout: `### TC-n - title`, then `Platform`, `Preconditions`, `Steps`, `Expected`, and result lines after a recording. When a format has a field this table does not list, read it as a note for the tester.
+Two common layouts:
+
+- **Case table** (written by `extract-test-cases`): an HTML table with one row per case, columns `ID`, `Case`, one per platform, and `Proof`. The fields sit in a collapsed `<details>` block in the Case cell. A platform cell of `—` means the case does not run there; the other cells hold the result (`⏳ not run`, `✅ pass`, `❌ fail`, `⚠️ outdated`, `🚫 removed`). A ★ in the title marks the happy path.
+- **Heading per case:** `### TC-n - title`, then `Platform`, `Preconditions`, `Steps`, `Expected`, and result lines after a recording.
+
+When a format has a field this table does not list, read it as a note for the tester.
 
 **Key:** the file name without its extension (`specs/testcases/AO-702.md` → `AO-702`). When that name is generic (`cases`, `index`, `README`), use the folder name.
 
@@ -40,7 +46,7 @@ A common layout: `### TC-n - title`, then `Platform`, `Preconditions`, `Steps`, 
 Without IDs in the arguments, pick every case that:
 
 - runs on the target, and
-- is not marked removed, inactive, draft or deprecated, and
+- is not marked removed (`🚫`), inactive, draft or deprecated, and
 - has no `pass` result for the target yet. A `fail` or `outdated` result is recorded again.
 
 Then sort out cases the agent cannot drive. A case **needs a person** when it is marked for one (`Driver: human`, `Mode: manual`), or its steps need something no tool here can do: real biometrics, a real SMS or email, a camera, a card reader, a store sandbox login. It is not run; it goes in the ledger as BLOCKED with "needs a person: <what it needs>".
@@ -77,9 +83,9 @@ Each phase ends with a gate. A failed gate stops the run and says which gate fai
 
 1. Read `references/mobile.md` for `ios` and `android`, or `references/web.md` for `web`.
 2. Check that the server's tools are in the session: `list-devices` for argent, `new_page` for chrome-devtools-rec. Pick the device or open the page.
-3. Make a test recording of about 2 seconds to `.evidence/<KEY>/probe.mp4` with the reference file's Video tools. Confirm the file exists and is not empty, then delete it. A connected server can still fail to record, for example when ffmpeg is missing, and both servers need it.
+3. When any picked case needs video, make a test recording of about 2 seconds to `.evidence/<KEY>/probe.mp4` with the reference file's Video tools. Confirm the file exists and is not empty, then delete it. A connected server can still fail to record, for example when ffmpeg is missing, and both servers need it. When every picked case is screenshots, take one test screenshot instead and delete it.
 
-**Gate:** the server for the target answers and the test recording worked. If either fails, stop before any case runs. A run without video gives no evidence, so do not fall back to screenshots. Tell the user what failed and how to fix it: enable the plugin that ships these servers and run `/mcp` to see why a server did not start, or install ffmpeg (`brew install ffmpeg`) and restart the session.
+**Gate:** the server for the target answers and the test capture worked. If either fails, stop before any case runs. A video case has no evidence without its video, so never swap it for screenshots. Tell the user what failed and how to fix it: enable the plugin that ships these servers and run `/mcp` to see why a server did not start, or install ffmpeg (`brew install ffmpeg`) and restart the session.
 
 ### Phase 3 — Prepare
 
@@ -96,12 +102,13 @@ Each phase ends with a gate. A failed gate stops the run and says which gate fai
 Follow the reference file for each step:
 
 1. Put the app in the state the preconditions name, and confirm it with a check. A state that cannot be reached or confirmed makes the case BLOCKED; never record from the wrong start.
-2. Start the recording.
+2. **Video case:** start the recording.
 3. Do the steps in order.
-4. Check each expected line. Note which lines held.
-5. Stop the recording and confirm the file is in the case folder and not empty. If it is missing or empty, the recording tool broke: the case is BLOCKED, every case not yet run is NOT-RUN, and the run stops.
-   Then run `bash scripts/fit-video.sh <video>` from this skill's folder. GitLab/Github provider rejects uploads over 10 MB, so every video must be 10 MB or less. The script shrinks a video over 10 MB in place and leaves the others alone. Exit 2 means it is still too big at the smallest step: keep the case result, say so in the note, and give it as the reason in the ledger.
-6. Take screenshots only when the user asked for them.
+4. Check each expected line. Note which lines held. **Screenshot case:** take one screenshot as each checked state shows, named after that state.
+5. **Video case:** stop the recording and confirm the file is in the case folder and not empty. If it is missing or empty, the recording tool broke: the case is BLOCKED, every case not yet run is NOT-RUN, and the run stops.
+   Then run `bash scripts/fit-video.sh <video>` from this skill's folder. GitHub rejects uploads over 10 MB, so every video must be 10 MB or less. The script shrinks a video over 10 MB in place and leaves the others alone. Exit 2 means it is still too big at the smallest step: keep the case result, say so in the note, and give it as the reason in the ledger.
+   **Screenshot case:** confirm every screenshot is in the case folder and not empty; a missing one breaks the run the same way.
+6. Take screenshots in a video case only when the user asked for them.
 7. Run the server check, if any.
 8. Write the note (template below).
 
@@ -109,24 +116,35 @@ Case folder, every name starting with `<ID>-<target>`:
 
 ```text
 .evidence/<KEY>/<ID>/
-  <ID>-<target>.mp4               the video
-  <ID>-<target>-<n>-<state>.png   only when the user asks
+  <ID>-<target>.mp4               video cases
+  <ID>-<target>-<n>-<state>.png   screenshot cases, or when the user asks
   <ID>-<target>-server.txt        only when there is a server check
   <ID>-<target>.md                the note
 ```
 
-GitLab and GitHub name an uploaded file by its file name, and that name is how each link in the MR is matched to its case.
+GitHub names an uploaded file by its file name, and that name is how each link in the PR is matched to its case.
 
-A failed case keeps its recording and gets `Result: fail`, with the failed step or expected line in "What I saw". Go on to the next case, unless its preconditions name the failed case; then stop and say why.
+A failed case keeps its proof and gets `Result: fail`, with the failed step or expected line in "What I saw". Go on to the next case, unless its preconditions name the failed case; then stop and say why.
 
 Server checks: queries against data are read-only. A check that must change a setting (for example a DB profiler) turns it back off right after the case. Confirm which backend the build points at before the first query.
 
 ### Phase 5 — Write back and report
 
-**Write back.** For each recorded case, write its result into the case file with these result lines:
+**Write back.** For each recorded case, write its result into the case file in the file's own layout.
 
-- A case with one target: plain lines at the end of the case.
-- A case with several targets: one block per target, because each target passes or fails on its own.
+**Case table:**
+
+- Set the target's cell to `✅ pass` or `❌ fail`.
+- Inside the row, replace the target's result line, or add one after the Checks:
+
+  ```markdown
+  - iOS: Recording `TC-4/TC-4-ios.mp4` · Note: Lockout text showed 15:00 and counted down.
+  - Web: Screenshots `TC-2/TC-2-web-1-error.png`, `TC-2/TC-2-web-2-send-disabled.png` · Note: Both showed.
+  ```
+
+- When no cell of the case is still `⚠️ outdated`, delete its `- Outdated:` line and move the row back into ID order. The order is: current cases (★ first, then by ID), outdated cases, removed cases.
+
+**Heading per case:** a case with one target gets plain lines at the end of the case. A case with several targets gets one block per target, because each target passes or fails on its own.
 
 ```markdown
 - Platform: ios, android
@@ -139,12 +157,12 @@ Server checks: queries against data are read-only. A check that must change a se
   - Note: Lockout text showed 15:00 and counted down.
 ```
 
-- `Status` is `pass` or `fail`. `Recording` is the video path relative to `.evidence/<KEY>/`. `Note` is one line.
+- `Status` is `pass` or `fail`. `Recording` is the video path, or the screenshot paths, relative to `.evidence/<KEY>/`. `Note` is one line.
 - Replace the target's old result lines or block. Leave other targets alone.
 - When no target of the case is still `outdated`, delete the case's `- Outdated:` line.
 - BLOCKED and NOT-RUN cases get nothing.
 - Change nothing else in the file: no steps, no wording, no IDs.
-- A file that is not Markdown with one block per case (CSV, `.feature`, a table) is not edited. Say in the report that the notes are the only record.
+- A file in neither layout (CSV, `.feature`, a plain Markdown table) is not edited. Say in the report that the notes are the only record.
 
 **Report.** Print in chat:
 
@@ -152,13 +170,13 @@ Server checks: queries against data are read-only. A check that must change a se
 2. A ledger, one row per picked case:
 
    ```text
-   case | status | video | reason
+   case | status | proof | reason
    ```
 
    Status is one of VERIFIED, FAILED, BLOCKED, NOT-RUN. The reason names a server check that did not run.
 
 3. The evidence folder, the tools used, and whether the case file was updated.
-4. One line: the notes are ready to become the MR evidence block.
+4. One line: the notes are ready to become the PR evidence block, which goes on the feature's final PR.
 
 Then clean up as the reference file says.
 
@@ -172,7 +190,7 @@ Then clean up as the reference file says.
 - Build: dev · Device: iPhone 16 (sim)
 - Account: <test account name, never a password>
 - Date: YYYY-MM-DD
-- Video: TC-4-ios.mp4
+- Proof: video TC-4-ios.mp4
 
 ## Checks
 
@@ -188,4 +206,4 @@ Then clean up as the reference file says.
 Only on fail: steps, expected, actual.
 ```
 
-Leave out `## Server check` when the case has none. For web, `Device` is the browser and its viewport.
+For a screenshot case, `Proof` lists the screenshot names. Leave out `## Server check` when the case has none. For web, `Device` is the browser and its viewport.

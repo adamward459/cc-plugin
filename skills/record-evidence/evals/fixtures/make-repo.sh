@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-# Usage: make-repo.sh <no-case-file|extract-format|other-format|web-transfer> <dest> [port]
+# Usage: make-repo.sh <no-case-file|extract-format|other-format|web-transfer|case-table> <dest> [port]
 KIND="$1"
 DEST="$2"
 PORT="${3:-8765}"
@@ -25,6 +25,89 @@ export default function App() {
 }
 EOF
 printf 'node_modules/\nios/Pods/\n' > .gitignore
+
+if [ "$KIND" = "case-table" ]; then
+  printf '.evidence/\n' >> .gitignore
+  mkdir -p specs/testcases
+  cat > specs/testcases/AO-702.md <<'EOF'
+# AO-702 - OTP resend
+
+## Setup
+
+- App: mobile dev build, Login screen
+- Account: QA account "otp-tester" (password in 1Password, vault "QA")
+
+## Test Cases
+
+<table>
+<tr><th>ID</th><th>Case</th><th>iOS</th><th>Android</th><th>Proof</th></tr>
+<tr><td>TC-1</td><td><details><summary>★ Sign in with the OTP code</summary>
+
+- Behaviors: B-1
+- Proof: video, because the code is sent and the screen changes in order
+- Steps:
+  1. Enter the phone number of "otp-tester" and tap "Send code"
+  2. Enter the code from the test inbox
+- Checks:
+  1. "Resend in 60s" counts down
+  2. The Home screen shows
+- iOS: Recording `TC-1/TC-1-ios.mp4` · Note: Home showed.
+- Android: Recording `TC-1/TC-1-android.mp4` · Note: Countdown froze at 41s.
+
+</details></td><td>✅ pass</td><td>❌ fail</td><td>🎥</td></tr>
+<tr><td>TC-6</td><td><details><summary>A failed resend shows an error</summary>
+
+- Behaviors: B-4
+- Proof: screenshots, because the error is visible in one frame
+- Preconditions: airplane mode on
+- Steps:
+  1. Tap "Resend code"
+- Checks:
+  1. "Could not send code" shows
+
+</details></td><td>⏳ not run</td><td>⏳ not run</td><td>📷</td></tr>
+<tr><td>TC-2</td><td><details><summary>Lockout after 3 resends</summary>
+
+- Behaviors: B-2
+- Proof: screenshots, because the lockout text is visible in one frame
+- Outdated: lockout changed from 10 to 15 minutes
+- Steps:
+  1. Tap "Resend code" each time it is enabled, 3 times
+- Checks:
+  1. "Too many attempts. Try again in 15:00" shows
+  2. "Resend code" is hidden
+- iOS: Screenshots `TC-2/TC-2-ios-1-lockout.png` · Note: Lockout text showed 10:00.
+
+</details></td><td>⚠️ outdated</td><td>⚠️ outdated</td><td>📷</td></tr>
+<tr><td>TC-3</td><td><details><summary>Back button returns to Login</summary>
+
+- Behaviors: B-3
+- Proof: screenshots, because the Login screen is visible in one frame
+- Steps:
+  1. Press the system back button
+- Checks:
+  1. The Login screen shows
+
+</details></td><td>—</td><td>⏳ not run</td><td>📷</td></tr>
+<tr><td>TC-5</td><td><details><summary>The SMS code fills the field</summary>
+
+- Behaviors: B-5
+- Proof: screenshots, because the filled field is visible in one frame
+- Steps:
+  1. Wait for the real SMS on the test phone
+- Checks:
+  1. The code field fills by itself
+
+</details></td><td>⏳ not run</td><td>⏳ not run</td><td>📷</td></tr>
+<tr><td>TC-4</td><td><details><summary>Resend by voice call</summary>
+
+- Behaviors: B-6
+- Removed: voice call was dropped from the ticket
+
+</details></td><td>🚫 removed</td><td>🚫 removed</td><td>📷</td></tr>
+</table>
+EOF
+fi
 
 if [ "$KIND" = "extract-format" ]; then
   printf '.evidence/\n' >> .gitignore

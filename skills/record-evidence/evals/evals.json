@@ -83,6 +83,28 @@
         "Every video is 10 MB or less",
         "Chrome window closed by its profile folder"
       ]
+    },
+    {
+      "id": 5,
+      "name": "case-table-pick-then-no-argent",
+      "prompt": "record evidence for specs/testcases/AO-702.md on ios. I reviewed the file yesterday",
+      "expected_output": "Reads the case table: TC-2 (⚠️ outdated) and TC-6 (⏳ not run) picked; TC-1 skipped (✅ pass on iOS), TC-3 skipped (— on iOS, android only), TC-4 skipped (🚫 removed), TC-5 BLOCKED (needs a person, real SMS). Both picked cases are screenshot cases, so it plans a test screenshot, not a video. Stops at the tools gate because the argent MCP server is not connected, and does not fall back to xcrun simctl. The case file is unchanged.",
+      "files": [
+        "evals/fixtures/make-repo.sh case-table"
+      ],
+      "assertions": [
+        "Repo files unchanged (git status clean)",
+        "No .evidence folder created",
+        "No xcrun simctl or adb used to drive the app",
+        "TC-2 is picked (⚠️ outdated on iOS)",
+        "TC-6 is picked (⏳ not run on iOS)",
+        "TC-1 is skipped: already pass on iOS",
+        "TC-3 is skipped: android only",
+        "TC-4 is skipped: removed",
+        "TC-5 is BLOCKED: needs a person",
+        "Says the picked cases need screenshots, not video",
+        "Stops because the argent MCP server is not connected"
+      ]
     }
   ]
 }

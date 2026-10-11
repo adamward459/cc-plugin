@@ -4,7 +4,7 @@ from pathlib import Path
 
 it = Path(sys.argv[1])
 CONFIGS = sys.argv[2].split(",") if len(sys.argv) > 2 else ["with_skill", "old_skill"]
-POSTED = r"gh pr comment|gh api\b.*-X\s*(POST|PATCH)|glab mr note|glab api\b.*-X\s*(POST|PUT)|curl\b.*-X\s*POST|TOOL mcp__claude-in-chrome"
+POSTED = r"gh pr comment|gh api\b.*-X\s*(POST|PATCH)|curl\b.*-X\s*POST|TOOL mcp__claude-in-chrome"
 
 
 def load(run):
@@ -18,12 +18,27 @@ def first_line(block):
     return next((l for l in block.splitlines() if l.strip()), "")
 
 
-def sections(block):
-    return [l for l in block.splitlines() if l.startswith("## ")]
+def columns(block):
+    m = re.search(r"<tr>\s*<th>.*?</tr>", block, re.S)
+    return re.findall(r"<th>(.*?)</th>", m.group(0)) if m else []
+
+
+def case_rows(block):
+    start = r"<tr>\s*<td>\s*([A-Z]+-?\d+)\s*</td>"
+    return re.findall(start + r"(.*?)(?=" + start.replace("(", "(?:") + r"|\Z)", block, re.S)
 
 
 def case(block, cid):
-    return "\n".join(s for s in re.split(r"^### ", block, flags=re.M) if s.startswith(cid))
+    return next((body for i, body in case_rows(block) if i == cid), "")
+
+
+def proof_cell(block, cid):
+    cells = re.findall(r"<td>(.*?)</td>", case(block, cid).split("</details>", 1)[-1], re.S)
+    return cells[-1].strip() if cells else ""
+
+
+def inner_rows(block):
+    return re.findall(r"<tr>((?:(?!<tr>).)*?)</tr>", block, re.S)
 
 
 def common(run, verified):
@@ -37,26 +52,32 @@ def common(run, verified):
         ("Repo unchanged and nothing written into .evidence", not status and not stray, (status + " " + " ".join(stray))[:200]),
         ("Block written to the scratchpad", bool(block), ""),
         ("Nothing uploaded or posted", not re.search(POSTED, cmds), ""),
-        ("Waits for a yes", bool(re.search(r"\byes\b|confirm|go ahead|shall I|should I|say the word|proceed", reply, re.I)), ""),
+        ("Waits for a yes", bool(re.search(r"\byes\b|confirm|go ahead|shall I|should I|say the word|proceed|upload and post\?", reply, re.I)), ""),
         ("Lists the files with sizes", bool(re.search(r"\d+(\.\d+)?\s*(KB|kB|KiB|MB|MiB|bytes)\b", reply)), ""),
         ("Every screenshot and video has a placeholder", not missing, str(missing)),
         (f"First line: VERIFIED {verified}", f"VERIFIED {verified}" in first_line(block), first_line(block)[:120]),
+        ("One table, a row per case", len(case_rows(block)) >= 1 and not re.search(r"^## ", block, re.M),
+         str([i for i, _ in case_rows(block)])),
+        ("Every case row is collapsed by default",
+         bool(case_rows(block)) and all("<details><summary>" in b for _, b in case_rows(block)) and "<details open" not in block, ""),
+        ("Blank line after each summary and before each </details>",
+         bool(case_rows(block)) and all(re.search(r"</summary>\n\n", b) and re.search(r"\n\n</details>", b) for _, b in case_rows(block)), ""),
     ]
 
 
-def has_section(block, word):
-    return any(re.search(word, s, re.I) for s in sections(block))
+def has_column(block, word):
+    return any(re.search(word, c, re.I) for c in columns(block))
 
 
 def check_1(run):
     reply, cmds, block, res = common(run, "2 of 4")
-    img_rows = [r for r in re.findall(r"<tr>.*?</tr>", block, re.S) if "<img" in r]
+    img_rows = [r for r in inner_rows(block) if "<img" in r]
     return res + [
         ("No token or header from server.txt in the block", "SECRET123" not in block and "Authorization" not in block, ""),
         ("Names GitHub and the PR link", "github" in reply.lower() and "github.com/acme/aqx-mobile/pull/42" in reply, ""),
         ("Plans to post with gh pr comment", "gh pr comment" in reply, ""),
-        ("iOS and Android sections, no Web section",
-         has_section(block, "ios") and has_section(block, "android") and not has_section(block, "web"), str(sections(block))),
+        ("iOS and Android columns, no Web column",
+         has_column(block, "ios") and has_column(block, "android") and not has_column(block, "web"), str(columns(block))),
         ("TC-3 android listed as not run", bool(re.search(r"not[ -]run", case(block, "TC-3"), re.I)), case(block, "TC-3")[:150]),
         ("TC-4 (removed) left out", "TC-4" not in block, ""),
         ("Screenshot rows have 3 cells each (last row padded)",
@@ -71,11 +92,10 @@ def check_1(run):
 def check_2(run):
     reply, cmds, block, res = common(run, "2 of 2")
     return res + [
-        ("Names GitLab and the MR link", "gitlab" in reply.lower() and "gitlab.acme.dev/mobile/aqx/-/merge_requests/17" in reply, ""),
-        ("Calls it an MR", bool(re.search(r"\bMR\b|merge request", reply)), ""),
-        ("Plans to post with glab", "glab" in reply, ""),
-        ("Web and iOS sections, no Android section",
-         has_section(block, "web") and has_section(block, "ios") and not has_section(block, "android"), str(sections(block))),
+        ("Names GitHub and the PR link", "github" in reply.lower() and "github.com/acme/aqx/pull/17" in reply, ""),
+        ("Plans to post with gh pr comment", "gh pr comment" in reply, ""),
+        ("Web and iOS columns, no Android column",
+         has_column(block, "web") and has_column(block, "ios") and not has_column(block, "android"), str(columns(block))),
         ("SS2 (inactive) left out", "SS2" not in block, ""),
     ]
 
@@ -84,15 +104,31 @@ def check_3(run):
     reply, cmds, block, res = common(run, "2 of 4")
     return res + [
         ("Uses the given Bitbucket PR link", "bitbucket.org/acme/transfer-web/pull-requests/9" in reply, ""),
-        ("Says the user presses Comment (no gh or glab post)",
-         bool(re.search(r"press(es)? .{0,20}Comment|click .{0,20}Comment", reply, re.I)) and not re.search(r"gh pr comment|glab", reply), ""),
-        ("Web and iOS sections", has_section(block, "web") and has_section(block, "ios"), str(sections(block))),
+        ("Says the user presses Comment (no gh post)",
+         bool(re.search(r"press(es)? .{0,20}Comment|click .{0,20}Comment", reply, re.I)) and "gh pr comment" not in reply, ""),
+        ("Web and iOS columns", has_column(block, "web") and has_column(block, "ios"), str(columns(block))),
         ("TC-4 ios listed as not run", bool(re.search(r"not[ -]run", case(block, "TC-4"), re.I)), case(block, "TC-4")[:150]),
         ("TC-2 'What I saw' copied", "Sent 120 USD" in block, ""),
     ]
 
 
-CHECKS = {"1": check_1, "2": check_2, "3": check_3}
+def check_4(run):
+    reply, cmds, block, res = common(run, "2 of 3")
+    ids = [i for i, _ in case_rows(block)]
+    return res + [
+        ("Asks whether this is the feature's final PR", bool(re.search(r"final PR|last PR", reply, re.I)), ""),
+        ("Rows ordered: TC-1 (★), TC-2, then outdated TC-3", ids == ["TC-1", "TC-2", "TC-3"], str(ids)),
+        ("TC-3 shows ⚠️ outdated and is not counted as verified",
+         "⚠️" in case(block, "TC-3") or "outdated" in case(block, "TC-3").lower(), case(block, "TC-3")[-120:]),
+        ("TC-4 (removed) left out", "TC-4" not in block, ""),
+        ("TC-1 proof cell is 🎥 and TC-2 is 📷",
+         proof_cell(block, "TC-1") == "🎥" and proof_cell(block, "TC-2") == "📷",
+         f"{proof_cell(block, 'TC-1')} {proof_cell(block, 'TC-2')}"),
+        ("TC-2 has no video placeholder", "{{video:TC-2" not in block, ""),
+    ]
+
+
+CHECKS = {"1": check_1, "2": check_2, "3": check_3, "4": check_4}
 
 for ev in sorted(it.glob("eval-*")):
     fn = CHECKS[ev.name.split("-")[1]]

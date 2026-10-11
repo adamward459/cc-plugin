@@ -118,7 +118,22 @@ def check_4(run):
     ]
 
 
-CHECKS = {"1": check_1, "2": check_2, "3": check_3, "4": check_4}
+def check_5(run):
+    reply, cmds = load(run)
+    return gate_common(run, cmds) + [
+        ("TC-2 is picked (⚠️ outdated on iOS)", *said(reply, "TC-2", PICKED)),
+        ("TC-6 is picked (⏳ not run on iOS)", *said(reply, "TC-6", PICKED)),
+        ("TC-1 is skipped: already pass on iOS", *said(reply, "TC-1", r"pass")),
+        ("TC-3 is skipped: android only", *said(reply, "TC-3", r"android")),
+        ("TC-4 is skipped: removed", *said(reply, "TC-4", r"removed")),
+        ("TC-5 is BLOCKED: needs a person", *said(reply, "TC-5", r"block|person|manual|human")),
+        ("Says the picked cases need screenshots, not video", bool(re.search(r"screenshot", reply, re.I)), ""),
+        ("Stops because the argent MCP server is not connected",
+         bool(re.search(r"argent", reply, re.I) and re.search(r"not (connected|available|in (this|the) session|loaded|running)|missing|enable", reply, re.I)), ""),
+    ]
+
+
+CHECKS = {"1": check_1, "2": check_2, "3": check_3, "4": check_4, "5": check_5}
 
 for ev in sorted(it.glob("eval-*")):
     fn = CHECKS[ev.name.split("-")[1]]

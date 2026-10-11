@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-# Usage: make-repo.sh <github|gitlab|other> <dest>
+# Usage: make-repo.sh <github|folder-key|other|case-table> <dest>
 KIND="$1"
 DEST="$2"
 [ -n "$KIND" ] && [ -n "$DEST" ] || { echo "Usage: make-repo.sh <kind> <dest>" >&2; exit 1; }
@@ -93,8 +93,8 @@ Tapped "Send code". Expected "Resend in 60s" counting down. The label stayed at 
   blob $E/TC-2/TC-2-ios-1-cooldown-frozen.png 45000
 fi
 
-if [ "$KIND" = "gitlab" ]; then
-  git remote add origin https://gitlab.acme.dev/mobile/aqx.git
+if [ "$KIND" = "folder-key" ]; then
+  git remote add origin https://github.com/acme/aqx.git
   mkdir -p spec/testcases/sentence-search
   cat > spec/testcases/sentence-search/cases.md <<'EOF'
 # Sentence search
@@ -175,6 +175,80 @@ Entered 120 and clicked "Send". Expected "Amount exceeds balance". The page show
   blob $E/TC-2/TC-2-web.mp4 210000
   note $E/TC-3/TC-3-web.md TC-3 Web "Valid transfer" pass TC-3-web.mp4
   blob $E/TC-3/TC-3-web.mp4 220000
+fi
+
+if [ "$KIND" = "case-table" ]; then
+  git remote add origin git@github.com:acme/aqx.git
+  cat > AGENTS.md <<'EOF'
+# aqx
+
+## Feature Workflow
+
+- Test case files live in `spec/testcases/`, named by feature.
+- Manual test evidence goes on the final PR only. Earlier PRs rely on unit and integration tests.
+EOF
+  mkdir -p spec/testcases
+  cat > spec/testcases/transfer.md <<'EOF'
+# Transfer form
+
+## Setup
+
+- App: web DEV, http://localhost:3000/transfer
+
+## Test Cases
+
+<table>
+<tr><th>ID</th><th>Case</th><th>Web</th><th>Proof</th></tr>
+<tr><td>TC-1</td><td><details><summary>★ Send 25 USD</summary>
+
+- Behaviors: B-1
+- Proof: video, because "Send" shows a spinner while the request runs
+- Steps:
+  1. Enter `25` and click "Send"
+- Checks:
+  1. "Send" shows a spinner
+  2. "Sent 25 USD" shows
+- Web: Recording `TC-1/TC-1-web.mp4` · Note: Spinner showed, then "Sent 25 USD".
+
+</details></td><td>✅ pass</td><td>🎥</td></tr>
+<tr><td>TC-2</td><td><details><summary>Amount under the minimum</summary>
+
+- Behaviors: B-2
+- Proof: screenshots, because the message is visible in one frame
+- Steps:
+  1. Enter `5` and click "Send"
+- Checks:
+  1. "Minimum is 10 USD" shows
+- Web: Screenshots `TC-2/TC-2-web-1-minimum-error.png` · Note: The message showed.
+
+</details></td><td>✅ pass</td><td>📷</td></tr>
+<tr><td>TC-3</td><td><details><summary>Amount over the balance</summary>
+
+- Behaviors: B-3
+- Proof: screenshots, because the message is visible in one frame
+- Outdated: the message is now "Not enough balance"
+- Steps:
+  1. Enter `120` and click "Send"
+- Checks:
+  1. "Not enough balance" shows
+- Web: Screenshots `TC-3/TC-3-web-1-balance-error.png` · Note: "Amount exceeds balance" showed.
+
+</details></td><td>⚠️ outdated</td><td>📷</td></tr>
+<tr><td>TC-4</td><td><details><summary>Face ID for large transfers</summary>
+
+- Behaviors: B-4
+- Removed: Face ID was dropped from the ticket
+
+</details></td><td>🚫 removed</td><td>📷</td></tr>
+</table>
+EOF
+  E=.evidence/transfer
+  note $E/TC-1/TC-1-web.md TC-1 Web "Send 25 USD" pass TC-1-web.mp4
+  blob $E/TC-1/TC-1-web.mp4 230000
+  note $E/TC-2/TC-2-web.md TC-2 Web "Amount under the minimum" pass "TC-2-web-1-minimum-error.png"
+  blob $E/TC-2/TC-2-web-1-minimum-error.png 35000
+  note $E/TC-3/TC-3-web.md TC-3 Web "Amount over the balance" pass "TC-3-web-1-balance-error.png"
+  blob $E/TC-3/TC-3-web-1-balance-error.png 36000
 fi
 
 git add -A && git commit -qm "init"

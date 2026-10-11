@@ -11,9 +11,40 @@ def section(text, title):
     return m.group(1) if m else ""
 
 
+def case_rows(text):
+    return re.findall(r"<tr>\s*<td>\s*(TC-\d+)\s*</td>(.*?)</tr>", section(text, "Test Cases"), re.S)
+
+
 def case(text, tc):
-    m = re.search(rf"^### {tc} .*?(?=^### |^## |\Z)", text, re.M | re.S)
-    return m.group(0) if m else ""
+    return next((body for i, body in case_rows(text) if i == tc), "")
+
+
+def summary(body):
+    m = re.search(r"<summary>(.*?)</summary>", body, re.S)
+    return m.group(1) if m else ""
+
+
+def cells(body):
+    return [c.strip() for c in re.findall(r"<td>(.*?)</td>", body.split("</details>", 1)[-1], re.S)]
+
+
+def platform_cells(body):
+    return cells(body)[:-1]
+
+
+def group(body):
+    cs = platform_cells(body)
+    if cs and all("🚫" in c or c == "—" for c in cs) and any("🚫" in c for c in cs):
+        return 2
+    return 1 if any("⚠️" in c for c in cs) else 0
+
+
+def order_ok(text):
+    rows = case_rows(text)
+    groups = [group(b) for _, b in rows]
+    current = [b for _, b in rows if group(b) == 0]
+    star_ok = not any("★" in summary(b) for b in current) or "★" in summary(current[0])
+    return groups == sorted(groups) and star_ok, str([(i, group(b)) for i, b in rows])
 
 
 def rows(table_text):
@@ -21,13 +52,18 @@ def rows(table_text):
 
 
 def manual_cases(text):
-    return re.findall(r"^### TC-\d+", section(text, "Test Cases") or text, re.M)
+    return [i for i, _ in case_rows(text)]
 
 
 def common(text, at_path, path_name, process, asked=''):
     beh = rows(section(text, "Behaviors"))
     tcs = manual_cases(text)
-    tc_blocks = [case(text, t[4:]) for t in tcs]
+    tc_blocks = [case(text, t) for t in tcs]
+    stars = [i for i, b in case_rows(text) if "★" in summary(b)]
+    live = [b for b in tc_blocks if group(b) < 2]
+    proof_ok = bool(live) and all(
+        (m := re.search(r"Proof: (video|screenshots)", b)) and ("🎥" if m.group(1) == "video" else "📷") == cells(b)[-1]
+        for b in live)
     return beh, tcs, tc_blocks, [
         (f"File saved at {path_name}", at_path, ""),
         ("Has a '## Setup' section", bool(re.search(r"^## Setup", text, re.M)), ""),
@@ -43,6 +79,17 @@ def common(text, at_path, path_name, process, asked=''):
         ("User answers used as sources", 'Answer "' in section(text, "Behaviors"), ""),
         ("Cases are not labeled manual/automated/human",
          not re.search(r"\b(manual|automated|human)\b", section(text, "Test Cases"), re.I), ""),
+        ("Cases are one table, a row per case", bool(tcs) and not re.search(r"^### TC-", text, re.M), f"{len(tcs)} rows"),
+        ("Every row is collapsed by default",
+         bool(tc_blocks) and all("<details><summary>" in b for b in tc_blocks) and "<details open" not in text, ""),
+        ("Blank line after each summary and before each </details>",
+         bool(tc_blocks) and all(re.search(r"</summary>\n\n", b) and re.search(r"\n\n</details>", b) for b in tc_blocks), ""),
+        ("Exactly one ★ happy-path case", len(stars) == 1, str(stars)),
+        ("★ case uses video proof", len(stars) == 1 and "Proof: video" in case(text, stars[0]), ""),
+        ("Every live case has a Proof line that matches its cell", proof_ok, ""),
+        ("Every case has numbered Checks",
+         bool(tc_blocks) and all(re.search(r"^- Checks:\n\s+1\. ", b, re.M) for b in tc_blocks), ""),
+        ("Rows ordered: current (★ first), outdated, removed", *order_ok(text)),
         ("Behavior and coverage steps ran in subagents",
          bool(re.search(r"subagent|agent", process, re.I)) and not re.search(r"could not spawn|spawned none|did not spawn", process, re.I),
          process.strip()[:200]),
@@ -75,7 +122,7 @@ def checks_mobile(text, at_path, process):
     manual = section(text, "Test Cases")
     out += [
         ("Setup names the otp_resend_v2 remote config", "otp_resend_v2" in section(text, "Setup"), ""),
-        ("Platform covers ios and android", "Platform: ios, android" in text, ""),
+        ("Platform columns for iOS and Android", bool(re.search(r"<th>iOS</th>.*<th>Android</th>|<th>Android</th>.*<th>iOS</th>", text)), ""),
         ("Behavior sources are code lines only",
          bool(beh) and all(re.search(r"\.tsx?:\d+", r) for r in beh) and not any("Jira" in r for r in beh), ""),
         ("No invented AC numbers", not re.search(r"\bAC-\d", text), ""),
@@ -94,12 +141,15 @@ def checks_update(text, at_path, process):
     questions = section(text, "Questions")
     out += [
         ("TC-1, TC-2, TC-3 keep their IDs", all(case(text, t) for t in ("TC-1", "TC-2", "TC-3")), ""),
-        ("TC-2 result lines unchanged", "Status: pass" in tc2 and "TC-2/recording.webm" in tc2 and "DBS ••••1234" in tc2, ""),
+        ("TC-2 result kept: pass cell, recording, note",
+         any("✅ pass" in c for c in platform_cells(tc2)) and "TC-2/recording.webm" in tc2 and "DBS ••••1234" in tc2, str(platform_cells(tc2))),
         ("TC-1 now expects the 20 USD minimum", "20 USD" in tc1, ""),
-        ("TC-1 is Status: outdated", "Status: outdated" in tc1, ""),
+        ("TC-1 cell is ⚠️ outdated", any("⚠️ outdated" in c for c in platform_cells(tc1)), str(platform_cells(tc1))),
+        ("No Status: lines left (results live in the cells)", not re.search(r"Status:", section(text, "Test Cases")), ""),
         ("TC-1 keeps its old Note", "Typed 5 and clicked Continue" in tc1, ""),
         ("TC-1 has an Outdated: reason line", bool(re.search(r"^- Outdated:", tc1, re.M)), ""),
-        ("New case added for Withdraw all", bool(re.search(r"^### TC-([4-9]|\d\d) .*Withdraw all", text, re.M | re.I)), ""),
+        ("New case added for Withdraw all",
+         any(int(i[3:]) >= 4 and re.search(r"withdraw all", summary(b), re.I) for i, b in case_rows(text)), ""),
         ("Double fee on Withdraw all asked or raised",
          bool(re.search(r"withdraw all", questions + ASKED, re.I) and re.search(r"fee", questions + ASKED, re.I)), ""),
         ("KYC automation reference kept", "WithdrawForm.test" in text, ""),
@@ -107,33 +157,26 @@ def checks_update(text, at_path, process):
     return out
 
 
-TC2_RESULTS = """- ios:
-  - Mode: agent
-  - Status: pass
-  - Recording: TC-2/ios.mp4
-  - Note: Lockout text showed 15:00 and counted down.
-- android:
-  - Mode: agent
-  - Status: pass
-  - Recording: TC-2/android.mp4
-  - Note: Same as iOS on a Pixel 7 emulator."""
+TC2_RESULTS = ("TC-2/ios.mp4", "Lockout text showed 15:00 and counted down.",
+               "TC-2/android.mp4", "Same as iOS on a Pixel 7 emulator.")
 
 
 def checks_mobile_update(text, at_path, process):
     beh, tcs, blocks, out = common(text, at_path, "specs/testcases/AO-702.md", process)
     out = [o for o in out if not o[0].startswith(("Asked the user", "User answers"))]
     tc1 = case(text, "TC-1")
-    statuses = re.findall(r"^\s*- Status: (\S+)", tc1, re.M)
+    tc2 = case(text, "TC-2")
+    outdated = [c for c in platform_cells(tc1) if "⚠️ outdated" in c]
     out += [
         ("TC-1, TC-2, TC-3 keep their IDs", all(case(text, t) for t in ("TC-1", "TC-2", "TC-3")), ""),
         ("TC-1 now expects the 0:30 cooldown", "0:30" in tc1, ""),
         ("TC-1 has one Outdated: line", len(re.findall(r"^- Outdated:", tc1, re.M)) == 1, ""),
-        ("TC-1 ios and android results are both Status: outdated",
-         bool(re.search(r"^- ios:", tc1, re.M) and re.search(r"^- android:", tc1, re.M))
-         and statuses == ["outdated", "outdated"], f"statuses: {statuses}"),
+        ("TC-1 iOS and Android cells are both ⚠️ outdated", len(outdated) == 2, str(platform_cells(tc1))),
+        ("No Status: lines left (results live in the cells)", not re.search(r"Status:", section(text, "Test Cases")), ""),
         ("TC-1 keeps both recordings and notes",
          all(s in tc1 for s in ("TC-1/ios.mp4", "TC-1/android.mp4", "then \"Resend code\" appeared", "froze at 0:41")), ""),
-        ("TC-2 platform results unchanged", TC2_RESULTS in case(text, "TC-2"), ""),
+        ("TC-2 platform results unchanged",
+         sum("✅ pass" in c for c in platform_cells(tc2)) == 2 and all(s in tc2 for s in TC2_RESULTS), str(platform_cells(tc2))),
     ]
     return out
 
